@@ -1,0 +1,140 @@
+# -*- coding: utf-8 -*-
+
+try:
+    import simplejson as json
+except ImportError:
+    import json
+import urllib
+
+from openerp import api
+import logging
+from openerp import exceptions
+from openerp import tools
+from openerp.tools.translate import _
+
+from openerp.addons.base_geoengine import geo_model
+from openerp.addons.base_geoengine import fields
+
+from openerp.osv import osv, fields as osv_fields
+from openerp import fields as oe_fields
+
+try:
+   import requests
+except ImportError:
+    logger = logging.getLogger(__name__)
+    logger.warning('requests is not available in the sys path')
+
+_logger = logging.getLogger(__name__)
+
+
+def geo_find(addr):
+    url = 'https://maps.googleapis.com/maps/api/geocode/json?sensor=false&address='
+    url += urllib.quote(addr.encode('utf8'))
+
+    try:
+        result = json.load(urllib.urlopen(url))
+    except Exception, e:
+        raise osv.except_osv(_('Network error'),
+                             _('Cannot contact geolocation servers. Please make sure that your internet connection is up and running (%s).') % e)
+    if result['status'] != 'OK':
+        return None
+
+    try:
+        geo = result['results'][0]['geometry']['location']
+        return float(geo['lat']), float(geo['lng'])
+    except (KeyError, ValueError):
+        return None
+
+
+def geo_query_address(street=None, zip=None, city=None, state=None, country=None):
+    if country and ',' in country and (country.endswith(' of') or country.endswith(' of the')):
+        # put country qualifier in front, otherwise GMap gives wrong results,
+        # e.g. 'Congo, Democratic Republic of the' => 'Democratic Republic of the Congo'
+        country = '{1} {0}'.format(*country.split(',', 1))
+    return tools.ustr(', '.join(filter(None, [street,
+                                              ("%s %s" % (zip or '', city or '')).strip(),
+                                              state,
+                                              country])))
+
+
+class product_template(osv.osv, geo_model.GeoModel):
+    _inherit = "product.template"
+
+
+    @api.one
+    def geocode_address(self):
+        """Get the latitude and longitude by requesting "mapquestapi"
+        see http://open.mapquestapi.com/geocoding/
+        """
+        url = 'http://nominatim.openstreetmap.org/search'
+        pay_load = {
+            'limit': 1,
+            'format': 'json',
+            'postalCode': self.zip or '',
+            'city': self.city or '',
+            'country': self.country and self.country.name or '',
+            'countryCodes': self.country and self.country.code or ''}
+
+        request_result = requests.get(url, params=pay_load)
+        try:
+            request_result.raise_for_status()
+        except Exception as e:
+            _logger.exception('Geocoding error')
+            raise exceptions.Warning(_(
+                'Geocoding error. \n %s') % e.message)
+        vals = request_result.json()
+        vals = vals and vals[0] or {}
+        self.write({
+            'product_latitude': vals.get('lat'),
+            'product_longitude': vals.get('lon'),
+            })
+
+    @api.one
+    def geo_localize(self):
+        self.geocode_address()
+        return True
+
+    @api.one
+    @api.depends('product_latitude', 'product_longitude')
+    def _get_geo_point(self):
+        if not self.product_latitude or not self.product_longitude:
+            self.geo_point = False
+        else:
+            self.geo_point = fields.GeoPoint.from_latlon(
+                self.env.cr, self.product_latitude, self.product_longitude)
+
+    @api.multi
+    def onchange_state(self, state_id):
+        if state_id:
+            state = self.env['res.country.state'].browse(state_id)
+            return {'value': {'country_id': state.country_id.id}}
+        return {}
+
+    geo_point = fields.GeoPoint(string='Addresses Coordinate', readonly=True, store=True, compute='_get_geo_point')
+    street = oe_fields.Char(string='Street')
+    street2 = oe_fields.Char(string='Street2')
+    city = oe_fields.Char(string='City')
+    zip = oe_fields.Char(string='Zip')
+    state = oe_fields.Many2one('res.country.state', string='State')
+    country = oe_fields.Many2one('res.country', string='Country')
+    product_latitude = oe_fields.Float(string='Latitude', digits=(16, 5))
+    product_longitude = oe_fields.Float(string='Longitude', digits=(16, 5))
+    date_localization = oe_fields.Date(string='Geo Localization Date')
+    is_property = oe_fields.Boolean(string='Is Property?')
+
+    def geo_localize(self, cr, uid, ids, context=None):
+        for product in self.browse(cr, uid, ids):
+            if not product:
+                continue
+            result = geo_find(geo_query_address(street=product.street,
+                                                zip=product.zip,
+                                                city=product.city,
+                                                state=product.state.name,
+                                                country=product.country.name))
+            if result:
+                self.write(cr, uid, [product.id], {
+                    'product_latitude': result[0],
+                    'product_longitude': result[1],
+                    'date_localization': osv_fields.date.context_today(self, cr, uid, context=context)
+                }, context=context)
+        return True

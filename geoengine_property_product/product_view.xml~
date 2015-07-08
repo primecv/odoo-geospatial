@@ -1,0 +1,201 @@
+<openerp>
+	<data>
+
+        <record id="product_template_property_form_view" model="ir.ui.view">
+            <field name="name">product.template.property.form</field>
+            <field name="model">product.template</field>
+			<field name="priority" eval="24"/>
+            <field name="arch" type="xml">
+                <form string="Property">
+                    <field name="is_product_variant" invisible="1"/>
+                    <field name='product_variant_count' invisible='1'/>
+                    <sheet>
+                        <field name="id" invisible="True"/>
+                        <div class="oe_right oe_button_box" style="width: 300px;" name="buttons">
+                        </div>
+                        <div class="oe_left" style="width: 500px;">
+                            <div class="oe_title" style="width: 390px;">
+                                <label class="oe_edit_only" for="name" string="Name"/>
+                                <h1><field name="name" class="oe_inline"/></h1>
+                            </div>
+                            <div class="oe_left" name="options" groups="base.group_user">
+                                <div>
+                                    <field name="sale_ok" invisible="1"/>
+                                    <label for="sale_ok" invisible="1"/>
+                                </div>
+                            </div>
+                        </div>
+                        <notebook>
+                            <page string="Information">
+                                <group colspan="4">
+									<group>
+						                <label for="street" string="Address"/>
+						                <div>
+						                    <field name="street" placeholder="Street..." />
+						                    <field name="street2"/>
+						                    <div class="address_format">
+						                        <field name="city" placeholder="City" style="width: 40%%"/>
+						                        <field name="state" class="oe_no_button" placeholder="State" style="width: 37%%" options='{"no_open": True}' on_change="onchange_state(state)"/>
+						                        <field name="zip" placeholder="ZIP" style="width: 20%%"/>
+						                    </div>
+						                    <field name="country" placeholder="Country" class="oe_no_button" options='{"no_open": True}'/>
+						                </div>
+									</group>
+                                    <group>
+                                        <field name="type" invisible="1"/>
+                                        <field name="uom_id" on_change="onchange_uom(uom_id,uom_po_id)" groups="product.group_uom"/>
+                                        <field name="list_price"/>
+										<field name="is_property" invisible="1"/>
+                                    </group>
+                                    <group>
+                                        <field name="active" invisible="1"/>
+                                    </group>
+                                </group>
+                                <field name="description" placeholder="describe the property characteristics..."/>
+                            </page>
+                            <page string="Procurements" groups="base.group_user">
+                                <group name="procurement">
+                                    <group name="general">
+                                        <field name="standard_price"/>
+                                    </group>
+                                    <group name="procurement_uom" groups="product.group_uom" string="Purchase">
+                                        <field name="uom_po_id"/>
+                                    </group>
+                                </group>
+                            </page>
+					        <page string="Geo Localization" name="geo_localization">
+					            <group colspan="2" col="2">
+					                <separator string="Geo Localization" colspan="2"/>
+					                <button
+					                    string="Geo Localize"
+					                    name="geo_localize"
+					                    colspan="2"
+					                    icon="gtk-apply"
+					                    type="object"/>
+					                <field name="product_latitude"/>
+					                <field name="product_longitude"/>
+					                <field name="date_localization"/>
+					            </group>
+								<group colspan="4">
+			                        <field name="geo_point" widget="geo_edit_map"
+		                               groups="base_geoengine.group_geoengine_user,base_geoengine.group_geoengine_admin"/>
+								</group>
+					        </page>
+
+                        </notebook>
+                    </sheet>
+                    <div class="oe_chatter">
+                        <field name="message_follower_ids" widget="mail_followers"/>
+                        <field name="message_ids" widget="mail_thread"/>
+                    </div>
+                </form>
+            </field>
+        </record>
+
+        <record id="product_template_property_tree_view" model="ir.ui.view">
+            <field name="name">product.template.property.tree</field>
+            <field name="model">product.template</field>
+			<field name="priority" eval="24"/>
+            <field name="arch" type="xml">
+                <tree string="Property">
+					<field name="name"/>
+					<field name="street"/>
+					<field name="street2"/>
+					<field name="city"/>
+					<field name="country"/>
+					<field name="product_latitude"/>
+					<field name="product_longitude"/>
+				</tree>
+			</field>
+		</record>
+					
+        <record id="ir_ui_view_geo_product_property" model="ir.ui.view">
+            <field name="name">Property</field>
+            <field name="model">product.template</field>
+            <field name="arch" type="xml">
+                <geoengine version="7.0">
+                    <field name="name"/>
+                    <field name="city"/>
+                    <field name="country"/>
+                    <field name="zip"/>
+                </geoengine>
+            </field>
+        </record>
+
+
+		<record id="product_property_form_action" model="ir.actions.act_window">
+			<field name="name">Property</field>
+			<field name="res_model">product.template</field>
+			<field name="view_type">form</field>
+			<field name="view_mode">tree,form,geoengine</field>
+			<field name="view_id" ref="product_template_property_tree_view"/>
+			<field name="context">{'type': 'service', 'default_type': 'service', 'is_property': True, 'default_is_property':True}</field>
+			<field name="domain">[('is_property','=',True)]</field>
+		</record>
+
+
+		<record model="ir.actions.act_window.view" id="action_product_property_tree">
+            <field name="sequence" eval="1"/>
+            <field name="view_mode">tree</field>
+            <field name="view_id" ref="product_template_property_tree_view"/>
+            <field name="act_window_id" ref="product_property_form_action"/>
+        </record>
+
+		<record model="ir.actions.act_window.view" id="action_product_property_form">
+            <field name="sequence" eval="2"/>
+            <field name="view_mode">form</field>
+            <field name="view_id" ref="product_template_property_form_view"/>
+            <field name="act_window_id" ref="product_property_form_action"/>
+        </record>
+
+		<record model="ir.actions.act_window.view" id="action_product_property_geoengine">
+            <field name="sequence" eval="20"/>
+            <field name="view_mode">geoengine</field>
+            <field name="view_id" ref="ir_ui_view_geo_product_property"/>
+            <field name="act_window_id" ref="product_property_form_action"/>
+        </record>
+
+
+		<menuitem id="menu_product_property" action="product_property_form_action" parent="base.menu_product" sequence="20"/>
+
+
+        <record id="geoengine_vector_layer_product_property" model="geoengine.vector.layer">
+            <field name="geo_field_id"
+                ref="geoengine_property_product.field_product_template_geo_point"/>
+            <field name="name">Property location</field>
+            <field eval="6" name="sequence"/>
+            <field name="view_id" ref="ir_ui_view_geo_product_property"/>
+            <field name="geo_repr">basic</field>
+            <field eval="1" name="nb_class"/>
+            <field name="begin_color">#FF680A</field>
+            <field name="symbol_binary">iVBORw0KGgoAAAANSUhEUgAAACAAAAAfCAYAAACGVs+MAAAAGXRFWHRTb2Z0d2FyZQBBZG9iZSBJ
+                bWFnZVJlYWR5ccllPAAAA3VJREFUeNq8V89rE0EUfjOz6aZNpFZpqyCEIooHoVaoQkGoB3vyJB49
+                iYieFERBEMRbxYP/gFcv3ntQLHqwqNR6LNUqIq0/m8S2u0l3NzszfpNsqN0e3MiuA4/Jmx3e++Z7
+                3/wI01pTkvZicF+zzwvR1c35efRX0B/K7SgScUHScVZ8KR96St31pPyuEHfk6+e/xrUoYWMwQM3D
+                7gvOL9lIYA8MkD1+gli+hxozM/3qw8erHtEYpp7D/MUkcXlSAFiZUEQXEfgSiwCJvp0kDh8mcWSY
+                2J49xBkzAY8B5KSvdTFVAKHWJan1dVMwQy/AkCyXKZydo8bLVySXl0kqZVgizDvT0Ho0SdzEJUDA
+                CaH1XgQ3YCjgnESlSmp6uqmBsFajoDWPmnOUOgX3WXoAlBoFxSLAKgWoZjDDhLXuNMsRwg/gQ4Bm
+                rvldSpUBrPoXR3CvLUgka4AFi7eqqExijPlmjmFISi9VDaA9xqoCiJHqSGKsBnPDkGowNxrbiL77
+                Sr1JlQG017DnCDzR1oFol6MlvKYZFlCCCsT4JG0A67CbsGEkHzSK520KAcIkp2h3oN2CfUy7BKa9
+                hZ2FzWnPo7BepwB9gF7ClKYKvl2GPUgaMDEDGtusfSrr0J+g42PXVLF4Uy8vM76rj6hQmKKn0zeY
+                EPOdrCgxAOvk+KazsVGlC+cf2fv3X+sOQ9uT5gDSU9q25ynh3dIxgO47t/+4GBhpxwn3Fgu6NFSi
+                paUv5Ky7gXVvcvPWSBsAd92tJdF6FQeRr0KZ1+YI1mpNrq5Rpy2xCBnjcYPgWOWP6/wH/UNLzEBX
+                Vy7OQIBKrEbpfVglUwCFnp44AI0jyI3KXYfb0B0KsLNtGBNW02fUFsaGuS4yZcDUPQZJY+xnpHgH
+                FmQKgHMWS48xRu1H3zdThmwBxBgwJcBYNXLL5tWWMQM8LkJinDuR62ZeAhYrQVODnK1H0jQXhcwU
+                gBBia35cfWClbJDgeeaADcPIfwTA8SARAKCb5Slb+M6zBLBNA62dYYSn8UdlNWdZ2QLo6+vdNibx
+                LAIQF+z4tp3ftlVTBVBZqcZPJurv3x16nv+jt7fXd/FgaYQNar0QMwDw6dPSFt+svVqt+iMjw3Jh
+                4X24Ui2Tldt6YR06eCDFF5Flxc+B00g8/G5xYVYF6ui+odIOzHmI8Y62428BBgDwu9RGZbaLEwAA
+                AABJRU5ErkJggg==
+            </field>
+        </record>
+        <record id="geoengine_vector_layer_product_property_google" model="geoengine.raster.layer">
+            <field name="raster_type">google</field>
+            <field name="google_type">G_HYBRID_MAP</field>
+            <field name="name">Property background</field>
+            <field name="view_id" ref="ir_ui_view_geo_product_property"/>
+            <field eval="0" name="overlay"/>
+        </record>
+
+
+	</data>
+</openerp>
