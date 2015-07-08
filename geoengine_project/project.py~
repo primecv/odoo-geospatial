@@ -1,0 +1,62 @@
+# -*- coding: utf-8 -*-
+
+try:
+    import simplejson as json
+except ImportError:
+    import json
+import urllib
+
+from openerp import api
+import logging
+from openerp import exceptions
+from openerp import tools
+from openerp.tools.translate import _
+
+from openerp.addons.base_geoengine import geo_model
+from openerp.addons.base_geoengine import fields
+
+from openerp.osv import osv, fields as osv_fields
+from openerp import fields as oe_fields
+
+try:
+   import requests
+except ImportError:
+    logger = logging.getLogger(__name__)
+    logger.warning('requests is not available in the sys path')
+
+_logger = logging.getLogger(__name__)
+
+
+class task(osv.Model, geo_model.GeoModel):
+    _inherit = "project.task"
+
+
+    @api.one
+    def geocode_address(self):
+        self.write({
+            'task_latitude': self.task_latitude,
+            'task_longitude': self.task_longitude,
+            })
+
+    @api.one
+    def geo_localize(self):
+        self.geocode_address()
+        return True
+
+    @api.one
+    @api.depends('task_latitude', 'task_longitude')
+    def _get_geo_point(self):
+        if not self.task_latitude or not self.task_longitude:
+            self.geo_point = False
+        else:
+            try:
+                self.geo_point = fields.GeoPoint.from_latlon(
+                    self.env.cr, self.task_latitude, self.task_longitude)
+            except Exception:
+                raise osv.except_osv(('Alert!'), ('Invalid Latitude or Longitude. \n%s'%(Exception)))
+
+    geo_point = fields.GeoPoint(string='Addresses Coordinate', readonly=True, store=True, compute='_get_geo_point')
+    task_latitude = oe_fields.Float(string='Latitude', digits=(16, 5))
+    task_longitude = oe_fields.Float(string='Longitude', digits=(16, 5))
+
+
